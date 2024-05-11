@@ -118,6 +118,27 @@ public class GridSystem<T> : Singleton<GridSystem<T>>
         return RemoveItemAt(position.x, position.y);
     }
 
+    // move an item on the grid 
+    public bool MoveItemTo(int x1, int y1, int x2, int y2, bool allowOverwrite = false)
+    {
+        if (!CheckBounds(x1, y1))
+            Debug.LogError("(" + x1 + ", " + y1 + ") are not on the grid");
+
+        if (!CheckBounds(x2, y2))
+            Debug.LogError("(" + x2 + ", " + y2 + ") are not on the grid");
+
+        if (!allowOverwrite && !IsEmpty(x2, y2))
+            return false;
+        
+        data[x2, y2] = RemoveItemAt(x1, y1);
+        return true;
+    }
+    public bool MoveItemTo(Vector2Int position1, Vector2Int position2, bool allowOverwrite = false)
+    {
+        return MoveItemTo(position1.x, position1.y, position2.x, position2.y, allowOverwrite);
+    }
+
+
     // swap 2 items on the grid
     public void SwapItemsAt(int x1, int y1, int x2, int y2)
     {

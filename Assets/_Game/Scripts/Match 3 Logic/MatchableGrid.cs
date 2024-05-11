@@ -5,12 +5,14 @@ using UnityEngine;
 public class MatchableGrid : GridSystem<Matchable>
 {
     private MatchablePool pool;
+    private ScoreManager score;
 
     [SerializeField] private Vector3 offScreenOffset;
 
     private void Start()
     {
         pool = (MatchablePool)MatchablePool.Instance;
+        score = (ScoreManager)ScoreManager.Instance;
     }
     public IEnumerator PopulateGrid(bool allowMatches = false)
     {
@@ -21,41 +23,43 @@ public class MatchableGrid : GridSystem<Matchable>
         {
             for (int x = 0; x < Dimensions.x; x++)
             {
-                // get a matchable from the pool
-                newMatchable = pool.GetRandomMatchable();
-
-                // position the matchable on screen
-//                newMatchable.transform.position = transform.position + new Vector3(1.35f*x, 1.35f*y);
-                onScreenPosition = transform.position + new Vector3(1.35f * x, 1.35f * y);
-                newMatchable.transform.position = onScreenPosition + offScreenOffset;
-
-                // activate the matchable
-                newMatchable.gameObject.SetActive(true);
-
-                // tell matchable where it is on the grid
-                newMatchable.position = new Vector2Int(x, y);
-
-                // place the matchable in the grid
-                PutItemAt(newMatchable, x, y);
-
-                int type = newMatchable.Type;
-
-                while(!allowMatches && IsPartOfAMatch(newMatchable)) 
+                if (IsEmpty(x, y))
                 {
-                    // change the matchable's type
-                    if (pool.NextType(newMatchable) == type)
+                    // get a matchable from the pool
+                    newMatchable = pool.GetRandomMatchable();
+
+                    // position the matchable on screen
+                    //                newMatchable.transform.position = transform.position + new Vector3(1.35f*x, 1.35f*y);
+                    onScreenPosition = transform.position + new Vector3(1.35f * x, 1.35f * y);
+                    newMatchable.transform.position = onScreenPosition + offScreenOffset;
+
+                    // activate the matchable
+                    newMatchable.gameObject.SetActive(true);
+
+                    // tell matchable where it is on the grid
+                    newMatchable.position = new Vector2Int(x, y);
+
+                    // place the matchable in the grid
+                    PutItemAt(newMatchable, x, y);
+
+                    int type = newMatchable.Type;
+
+                    while (!allowMatches && IsPartOfAMatch(newMatchable))
                     {
-                        Debug.LogWarning("Failed to find a matchable type at (" + x + ", " + y + ")");
-                        Debug.Break();
-                        break;
+                        // change the matchable's type
+                        if (pool.NextType(newMatchable) == type)
+                        {
+                            Debug.LogWarning("Failed to find a matchable type at (" + x + ", " + y + ")");
+                            Debug.Break();
+                            break;
+                        }
                     }
 
+                    // move the matchable to its on screen position
+                    StartCoroutine(newMatchable.MoveToPostion(onScreenPosition));
+
+                    yield return new WaitForSeconds(0.1f);
                 }
-
-                // move the matchable to its on screen position
-                StartCoroutine(newMatchable.MoveToPostion(onScreenPosition));
-
-                yield return new WaitForSeconds(0.1f);
             }
         }
     }
@@ -125,17 +129,22 @@ public class MatchableGrid : GridSystem<Matchable>
         */
         if (matches[0] != null)
         {
-            Debug.Log(matches[0]);
+            StartCoroutine(score.ResolveMatch(matches[0]));
         }
         if (matches[1] != null)
         {
-            Debug.Log(matches[1]);
+            StartCoroutine(score.ResolveMatch(matches[1]));
         }
 
         //  if there's no match, swap them back
         if (matches[0] == null && matches[1] == null)
         {
             StartCoroutine(Swap(copies));
+        }
+        else
+        {
+            CollapseGrid();
+            StartCoroutine(PopulateGrid(true));
         }
     }
     private Match GetMatch(Matchable toMatch)
@@ -207,5 +216,47 @@ public class MatchableGrid : GridSystem<Matchable>
         // move them to their new positions on screen
                      StartCoroutine(toBeSwapped[0].MoveToPostion(worldPosition[1]));
         yield return StartCoroutine(toBeSwapped[1].MoveToPostion(worldPosition[0]));
+    }
+    private void CollapseGrid()
+    {
+        /*
+         * Go through each column left to right
+         * bot to up find empty space
+         * then look above the empty space, rest of column
+         * until find non empty space
+         * Move the matchable at non emtpy space into empty space
+         * then continue looking for empty spaces
+         */
+
+
+        for(int x = 0; x < Dimensions.x; x++)
+        {
+            for(int yEmpty = 0; yEmpty < Dimensions.y; yEmpty++)
+            {
+                if(IsEmpty(x, yEmpty))
+                {
+                    for(int yNotEmpty = yEmpty + 1; yNotEmpty < Dimensions.y; yNotEmpty++)
+                    {
+                        if(!IsEmpty(x, yNotEmpty) && GetItemAt(x, yNotEmpty).Idle)
+                        {
+                            // Move the matchable from NotEmpty to Empty
+                            MoveMatchableToPosition(GetItemAt(x, yNotEmpty), x, yEmpty);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    private void MoveMatchableToPosition(Matchable toMove, int x, int y) 
+    {
+        // move the matchable to its new position in the grid
+        MoveItemTo(toMove.position, new Vector2Int(x, y));
+
+        // update the matchable's internal grid position
+        toMove.position = new Vector2Int(x, y);
+
+        // start anim move
+        StartCoroutine(toMove.MoveToPostion(transform.position + new Vector3(1.35f * x, 1.35f * y)));
     }
 }
