@@ -14,8 +14,11 @@ public class MatchableGrid : GridSystem<Matchable>
         pool = (MatchablePool)MatchablePool.Instance;
         score = (ScoreManager)ScoreManager.Instance;
     }
-    public IEnumerator PopulateGrid(bool allowMatches = false)
+    public IEnumerator PopulateGrid(bool allowMatches = false, bool initialPopulation = false)
     {
+        // List of new matchables added during population
+        List<Matchable> newMatchables = new List<Matchable>();
+
         Matchable newMatchable;
         Vector3 onScreenPosition;
 
@@ -28,10 +31,9 @@ public class MatchableGrid : GridSystem<Matchable>
                     // get a matchable from the pool
                     newMatchable = pool.GetRandomMatchable();
 
-                    // position the matchable on screen
-                    //                newMatchable.transform.position = transform.position + new Vector3(1.35f*x, 1.35f*y);
-                    onScreenPosition = transform.position + new Vector3(1.35f * x, 1.35f * y);
-                    newMatchable.transform.position = onScreenPosition + offScreenOffset;
+
+                    newMatchable.transform.position = (transform.position + new Vector3(1.35f * x, 1.35f * y))
+                        + offScreenOffset;
 
                     // activate the matchable
                     newMatchable.gameObject.SetActive(true);
@@ -41,6 +43,9 @@ public class MatchableGrid : GridSystem<Matchable>
 
                     // place the matchable in the grid
                     PutItemAt(newMatchable, x, y);
+
+                    // add the new matchable to the list 
+                    newMatchables.Add(newMatchable);
 
                     int type = newMatchable.Type;
 
@@ -54,13 +59,25 @@ public class MatchableGrid : GridSystem<Matchable>
                             break;
                         }
                     }
-
-                    // move the matchable to its on screen position
-                    StartCoroutine(newMatchable.MoveToPostion(onScreenPosition));
-
-                    yield return new WaitForSeconds(0.1f);
                 }
             }
+        }
+
+        // move each matchable to its on screen position, yielding until the last has finished 
+        for (int i = 0; i < newMatchables.Count; i++)
+        {
+            // position the matchable on screen
+            onScreenPosition = transform.position +
+                new Vector3(1.35f * newMatchables[i].position.x, 1.35f * newMatchables[i].position.y);
+
+            // move the matchable to its on screen position
+            if (i == newMatchables.Count - 1)
+                yield return StartCoroutine(newMatchables[i].MoveToPostion(onScreenPosition));
+            else
+                StartCoroutine(newMatchables[i].MoveToPostion(onScreenPosition));
+
+            if (initialPopulation)
+                yield return new WaitForSeconds(0.1f);
         }
     }
 
@@ -139,12 +156,26 @@ public class MatchableGrid : GridSystem<Matchable>
         //  if there's no match, swap them back
         if (matches[0] == null && matches[1] == null)
         {
-            StartCoroutine(Swap(copies));
+            yield return StartCoroutine(Swap(copies));
+
+            if (ScanForMatches())
+                StartCoroutine(FillAndScanGrid());
         }
         else
         {
-            CollapseGrid();
-            StartCoroutine(PopulateGrid(true));
+            StartCoroutine(FillAndScanGrid());
+        }
+    }
+    private IEnumerator FillAndScanGrid()
+    {
+        CollapseGrid();
+        yield return StartCoroutine(PopulateGrid(true));
+
+        // scan grid for chain reactions
+        if (ScanForMatches())
+        {
+            // collapse, repopulate and scan again
+            StartCoroutine(FillAndScanGrid());
         }
     }
     private Match GetMatch(Matchable toMatch)
@@ -155,19 +186,29 @@ public class MatchableGrid : GridSystem<Matchable>
               verticalMatch;
 
         // horizontal match
-        horizontalMatch = GetMatchesInDirection(toMatch, Vector2Int.left);
-        horizontalMatch.Merge(GetMatchesInDirection(toMatch, Vector2Int.right));
+        horizontalMatch = GetMatchesInDirection(match, toMatch, Vector2Int.left);
+        horizontalMatch.Merge(GetMatchesInDirection(match, toMatch, Vector2Int.right));
+
+        horizontalMatch.orientation = Orientation.horizontal;
+
         if (horizontalMatch.Count > 1)
         {
             match.Merge(horizontalMatch);
+            // scan for the vertical branches
+            GetBranches(match, horizontalMatch, Orientation.vertical);
         }
 
         // vertical match
-        verticalMatch = GetMatchesInDirection(toMatch, Vector2Int.up);
-        verticalMatch.Merge(GetMatchesInDirection(toMatch, Vector2Int.down));
+        verticalMatch = GetMatchesInDirection(match, toMatch, Vector2Int.up);
+        verticalMatch.Merge(GetMatchesInDirection(match, toMatch, Vector2Int.down));
+
+        verticalMatch.orientation = Orientation.vertical;
+
         if (verticalMatch.Count > 1)
         {
             match.Merge(verticalMatch);
+            // scan for the horizotal branches
+            GetBranches(match, verticalMatch, Orientation.horizontal);
         }
 
         if (match.Count == 1)
@@ -176,7 +217,7 @@ public class MatchableGrid : GridSystem<Matchable>
         return match;
     }
     // Add each matching matchable in the direction to a match and return it
-    private Match GetMatchesInDirection(Matchable toMatch, Vector2Int direction)
+    private Match GetMatchesInDirection(Match tree, Matchable toMatch, Vector2Int direction)
     {
         Match match = new Match();
 
@@ -189,13 +230,35 @@ public class MatchableGrid : GridSystem<Matchable>
 
             if (next.Type == toMatch.Type && next.Idle)
             {
-                match.AddMatchable(GetItemAt(position));
+                if (!tree.Contains(next))
+                    match.AddMatchable(next);
+                else
+                    match.AddUnlisted();
+
                 position += direction;
             }
             else
                 break;
         }
         return match;
+    }
+    private void GetBranches(Match tree, Match branchToSearch, Orientation perpendicular)
+    {
+        Match branch;
+
+        foreach(Matchable matchable in branchToSearch.Matchables)
+        {
+            branch = GetMatchesInDirection(tree, matchable, perpendicular == Orientation.horizontal ? Vector2Int.left : Vector2Int.down);
+            branch.Merge(GetMatchesInDirection(tree, matchable, perpendicular == Orientation.horizontal ? Vector2Int.right : Vector2Int.up));
+
+            branch.orientation = perpendicular;
+
+            if (branch.Count > 1)
+            {
+                tree.Merge(branch);
+                GetBranches(tree, branch, perpendicular == Orientation.horizontal ? Orientation.vertical : Orientation.horizontal);
+            }
+        }
     }
     private IEnumerator Swap(Matchable[] toBeSwapped)
     {
@@ -258,5 +321,40 @@ public class MatchableGrid : GridSystem<Matchable>
 
         // start anim move
         StartCoroutine(toMove.MoveToPostion(transform.position + new Vector3(1.35f * x, 1.35f * y)));
+    }
+
+    
+    // Scan the grid for any matches and resolve them
+    private bool ScanForMatches()
+    {
+        bool madeAMatch = false;
+        Matchable toMatch;
+        Match match;
+
+        // itrrate through the grid, looking for non-empty and idle matchables
+        for(int y = 0; y < Dimensions.y; y++)
+        {
+            for(int x = 0; x < Dimensions.x; x++)
+            {
+                if (!IsEmpty(x, y))
+                {
+                    toMatch = GetItemAt(x, y);
+
+                    if (!toMatch.Idle)
+                        continue;
+
+                    // try to match and resolve
+                    match = GetMatch(toMatch);
+
+                    if (match != null)
+                    {
+                        madeAMatch = true;
+                        StartCoroutine(score.ResolveMatch(match));
+                    }
+                }
+            } 
+        }
+
+        return madeAMatch;
     }
 }
