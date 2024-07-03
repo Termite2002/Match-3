@@ -136,6 +136,25 @@ public class MatchableGrid : GridSystem<Matchable>
         // yield until matchables animate swapping
         yield return StartCoroutine(Swap(copies));
 
+        // special cases for gems
+        // if both are gems, then match everything
+        if (copies[0].IsGem && copies[1].IsGem)
+        {
+            MatchEverything();
+            yield break;
+        }
+        // if one is a gem, then match all matching the color of the other
+        else if (copies[0].IsGem)
+        {
+            MatchEverythingByType(copies[0], copies[1], copies[1].Type);
+            yield break;
+        }
+        else if (copies[1].IsGem)
+        {
+            MatchEverythingByType(copies[1], copies[0], copies[0].Type);
+            yield break;
+        }
+
         // check for a valid match
         Match[] matches = new Match[2];
 
@@ -356,5 +375,86 @@ public class MatchableGrid : GridSystem<Matchable>
         }
 
         return madeAMatch;
+    }
+
+
+    // powerup match cross, match all matchables adjacent
+    public void MatchAllAdjacent(Matchable powerup)
+    {
+        Match allAdjacent = new Match();
+
+        for (int y = powerup.position.y - 1; y != powerup.position.y + 2; y++)
+        {
+            for (int x = powerup.position.x - 1; x != powerup.position.x + 2; x++)
+            {
+                if (CheckBounds(x, y) && !IsEmpty(x, y) && GetItemAt(x, y).Idle)
+                {
+                    allAdjacent.AddMatchable(GetItemAt(x, y));
+                }
+            }
+        }
+
+        StartCoroutine(score.ResolveMatch(allAdjacent, MatchType.cross));
+    }
+
+    // make a match of everything in row and collum
+    public void MatchRowAndColumn(Matchable powerup)
+    {
+        Match rowAndColumn = new Match();
+        
+        if (powerup.OriMatch4 == Orientation.vertical)
+        {
+            for (int y = 0; y != Dimensions.y; y++)
+            {
+                if (CheckBounds(powerup.position.x, y) && !IsEmpty(powerup.position.x, y) && GetItemAt(powerup.position.x, y).Idle)
+                {
+                    rowAndColumn.AddMatchable(GetItemAt(powerup.position.x, y));
+                }
+            }
+        }
+
+        if (powerup.OriMatch4 == Orientation.horizontal)
+        {
+            for (int x = 0; x != Dimensions.x; x++)
+            {
+                if (CheckBounds(x, powerup.position.y) && !IsEmpty(x, powerup.position.y) && GetItemAt(x, powerup.position.y).Idle)
+                {
+                    rowAndColumn.AddMatchable(GetItemAt(x, powerup.position.y));
+                }
+            }
+        }
+
+        StartCoroutine(score.ResolveMatch(rowAndColumn, MatchType.match4));
+    }
+
+    // match everything on the grid with specific type, resolve
+    public void MatchEverythingByType(Matchable gem, Matchable other, int type)
+    {
+        // TODO can resolve power up cross/4
+        other.ResolveBefore();
+
+        Match everythingByType = new Match(gem);
+
+        for (int y = 0; y != Dimensions.y; y++)
+            for (int x = 0; x != Dimensions.x; x++)
+                if (CheckBounds(x, y) && !IsEmpty(x, y) && GetItemAt(x, y).Idle && GetItemAt(x, y).Type == type)
+                    everythingByType.AddMatchable(GetItemAt(x, y));
+
+        StartCoroutine(score.ResolveMatch(everythingByType, MatchType.match5));
+        StartCoroutine(FillAndScanGrid());
+    }
+
+    // match every thing from the grid, resolve
+    public void MatchEverything()
+    {
+        Match everything = new Match();
+
+        for (int y = 0; y != Dimensions.y; y++)
+            for (int x = 0; x != Dimensions.x; x++)
+                if (CheckBounds(x, y) && !IsEmpty(x, y) && GetItemAt(x, y).Idle)
+                    everything.AddMatchable(GetItemAt(x, y));
+
+        StartCoroutine(score.ResolveMatch(everything, MatchType.match5));
+        StartCoroutine(FillAndScanGrid());
     }
 }

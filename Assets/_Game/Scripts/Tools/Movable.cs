@@ -9,7 +9,7 @@ public class Movable : MonoBehaviour
 
     private float howfar;
 
-    private bool idle = true;
+    protected bool idle = true;
 
     public bool Idle
     {
@@ -38,6 +38,33 @@ public class Movable : MonoBehaviour
             howfar += speed * Time.deltaTime;
             if (howfar > 1)
                 howfar = 1;
+
+            transform.position = Vector3.LerpUnclamped(from, to, Easing(howfar));
+
+            yield return null;
+        }
+        while (howfar != 1);
+
+        idle = true;
+    }
+
+    // coroutine move from current position to target, can chase target
+    public IEnumerator MoveToTransform(Transform target)
+    {
+        if (speed <= 0)
+            Debug.LogWarning("Speed must be a positive number");
+
+        from = transform.position;
+        to = target.position;
+        howfar = 0;
+        idle = false;
+        do
+        {
+            howfar += speed * Time.deltaTime;
+            if (howfar > 1)
+                howfar = 1;
+
+            to = target.position;
 
             transform.position = Vector3.LerpUnclamped(from, to, Easing(howfar));
 
