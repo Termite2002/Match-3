@@ -8,6 +8,7 @@ public class MatchableGrid : GridSystem<Matchable>
     private MatchablePool pool;
     private ScoreManager score;
     private HintIndicator hint;
+    private AudioMixer audioMixer;
 
     [SerializeField] private Vector3 offScreenOffset;
 
@@ -19,6 +20,7 @@ public class MatchableGrid : GridSystem<Matchable>
         pool = (MatchablePool)MatchablePool.Instance;
         score = ScoreManager.Instance;
         hint = HintIndicator.Instance;
+        audioMixer = AudioMixer.Instance;
     }
     public IEnumerator PopulateGrid(bool allowMatches = false, bool initialPopulation = false)
     {
@@ -75,6 +77,9 @@ public class MatchableGrid : GridSystem<Matchable>
             // position the matchable on screen
             onScreenPosition = transform.position +
                 new Vector3(1.35f * newMatchables[i].position.x, 1.35f * newMatchables[i].position.y);
+
+            // landing sound
+            audioMixer.PlayDelayedSound(SoundEffects.land, 1f / newMatchables[i].Speed);
 
             // move the matchable to its on screen position
             if (i == newMatchables.Count - 1)
@@ -323,6 +328,9 @@ public class MatchableGrid : GridSystem<Matchable>
         worldPosition[0] = toBeSwapped[0].transform.position;
         worldPosition[1] = toBeSwapped[1].transform.position;
 
+        // swap sound
+        audioMixer.PlaySound(SoundEffects.swap);
+
         // move them to their new positions on screen
                      StartCoroutine(toBeSwapped[0].MoveToPostion(worldPosition[1]));
         yield return StartCoroutine(toBeSwapped[1].MoveToPostion(worldPosition[0]));
@@ -368,6 +376,9 @@ public class MatchableGrid : GridSystem<Matchable>
 
         // start anim move
         StartCoroutine(toMove.MoveToPostion(transform.position + new Vector3(1.35f * x, 1.35f * y)));
+
+        // landing sound
+        audioMixer.PlayDelayedSound(SoundEffects.land, 1f / toMove.Speed);
     }
 
     
@@ -423,6 +434,9 @@ public class MatchableGrid : GridSystem<Matchable>
         }
 
         StartCoroutine(score.ResolveMatch(allAdjacent, MatchType.cross));
+
+        // powerup sound
+        audioMixer.PlaySound(SoundEffects.powerup);
     }
 
     // make a match of everything in row and collum
@@ -453,6 +467,9 @@ public class MatchableGrid : GridSystem<Matchable>
         }
 
         StartCoroutine(score.ResolveMatch(rowAndColumn, MatchType.match4));
+
+        // powerup sound
+        audioMixer.PlaySound(SoundEffects.powerup);
     }
 
     // match everything on the grid with specific type, resolve
@@ -470,6 +487,9 @@ public class MatchableGrid : GridSystem<Matchable>
 
         StartCoroutine(score.ResolveMatch(everythingByType, MatchType.match5));
         StartCoroutine(FillAndScanGrid());
+
+        // powerup sound
+        audioMixer.PlaySound(SoundEffects.powerup);
     }
 
     // match every thing from the grid, resolve
@@ -484,6 +504,9 @@ public class MatchableGrid : GridSystem<Matchable>
 
         StartCoroutine(score.ResolveMatch(everything, MatchType.match5));
         StartCoroutine(FillAndScanGrid());
+
+        // powerup sound
+        audioMixer.PlaySound(SoundEffects.powerup);
     }
 
     // scan for all possible moves
