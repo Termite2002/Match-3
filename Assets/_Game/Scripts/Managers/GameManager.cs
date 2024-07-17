@@ -40,5 +40,12 @@ public class GameManager : Singleton<GameManager>
         StartCoroutine(grid.PopulateGrid(false, true));
 
         // remove loading screen
+
+        // hint
+        grid.CheckPossibleMoves();
+    }
+    public void NoMoreMoves()
+    {
+        grid.MatchEverything();
     }
 }
