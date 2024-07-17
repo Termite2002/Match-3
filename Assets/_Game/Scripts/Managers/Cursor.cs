@@ -36,8 +36,6 @@ public class Cursor : Singleton<Cursor>
         if (!cheatMode || selected[0] == null)
             return;
 
-        Debug.Log("ok");
-
         if (Input.GetKeyDown(KeyCode.Alpha1))
             pool.ChangeType(selected[0], 0);
 
