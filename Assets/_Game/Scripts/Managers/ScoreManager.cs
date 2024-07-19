@@ -47,6 +47,13 @@ public class ScoreManager : Singleton<ScoreManager>
         comboText.enabled = false;
         comboSlider.gameObject.SetActive(false);
     }
+
+    public void Reset()
+    {
+        score = 0;
+        scoreText.text = "Score : " + score;
+        timeSinceLastScore = maxComboTime;
+    }
     public void AddScore(int amount)
     {
         score += amount * IncreaseCombo();
@@ -143,6 +150,9 @@ public class ScoreManager : Singleton<ScoreManager>
 
         // update player's score
         AddScore(toResolve.Count * toResolve.Count);
+
+        // add time if has timer
+        GameManager.Instance.AddTimer(toResolve.Count * 0.5f);
 
         if (powerupFormed != null)
         {

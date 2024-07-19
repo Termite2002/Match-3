@@ -22,6 +22,20 @@ public class MatchableGrid : GridSystem<Matchable>
         hint = HintIndicator.Instance;
         audioMixer = AudioMixer.Instance;
     }
+
+    public IEnumerator Reset()
+    {
+        for (int y = 0; y < Dimensions.y; y++)
+        {
+            for (int x = 0; x < Dimensions.x; x++)
+            {
+                if (!IsEmpty(x, y))
+                    pool.ReturnObjectToPool(RemoveItemAt(x, y));
+            }
+        }
+
+        yield return StartCoroutine(PopulateGrid(false, true));
+    }
     public IEnumerator PopulateGrid(bool allowMatches = false, bool initialPopulation = false)
     {
         // List of new matchables added during population

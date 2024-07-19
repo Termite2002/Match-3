@@ -6,6 +6,12 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/_Game/Scenes/SampleScene.unity
+    path: Assets/_Game/Scenes/Main Menu.unity
+    guid: d7a6d4fc049762246b0803634056e129
+  - enabled: 1
+    path: Assets/_Game/Scenes/Survival.unity
     guid: 2cda990e2423bbf4892e6590ba056729
+  - enabled: 1
+    path: Assets/_Game/Scenes/Time Rush.unity
+    guid: 90ddb8629c874714589862aa8be0c13e
   m_configObjects: {}
